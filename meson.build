@@ -36,7 +36,7 @@ if host_system == 'linux'
 endif
 pfsshell_ldflags = []
 if host_system == 'windows' and cc.get_id() != 'msvc' and cc.get_id() != 'clang-cl'
-	pfsshell_ldflags += ['-static']
+	pfsshell_ldflags += ['-static', '-lpthread']
 endif
 if host_system == 'linux'
 	pfsshell_ldflags += ['-lpthread']
@@ -104,7 +104,7 @@ endif
 
 pfs2tar_ldflags = []
 if host_system == 'windows' and cc.get_id() != 'msvc' and cc.get_id() != 'clang-cl'
-    pfs2tar_ldflags += ['-static']
+    pfs2tar_ldflags += ['-static', '-lpthread']
 elif host_system == 'linux'
     pfs2tar_ldflags += ['-lpthread']
 endif
