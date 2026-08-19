@@ -76,14 +76,23 @@ int set_atad_device_handle(int fd)
             } else
                 return 1;
         } else {
-#endif
-            off_t size = lseek(fd, 0, SEEK_END);
-            if (size != (off_t)-1)
-                hdd_length = (size - 511) / 512;
-            else
-                return 1;
-#ifdef _WIN32
+            LARGE_INTEGER fileSize;
+            if (win_handle != INVALID_HANDLE_VALUE && GetFileSizeEx(win_handle, &fileSize)) {
+                hdd_length = (u32)(fileSize.QuadPart / 512);
+            } else {
+                int64_t size_64 = _lseeki64(fd, 0, SEEK_END);
+                if (size_64 != -1)
+                    hdd_length = (u32)((size_64 - 511) / 512);
+                else
+                    return 1;
+            }
         }
+#else
+        off_t size = lseek(fd, 0, SEEK_END);
+        if (size != (off_t)-1)
+            hdd_length = (size - 511) / 512;
+        else
+            return 1;
 #endif
 #ifdef __APPLE__
     }
@@ -136,11 +145,19 @@ int ata_device_sector_io(int device, void *buf, u32 lba, u32 nsectors, int dir)
         return (-1);
     }
 
+#ifdef _WIN32
+    int64_t pos = _lseeki64(handle, (int64_t)lba * 512, SEEK_SET);
+    if (pos == -1) {
+        printf("lseek: atad device fd %d: %s\n", handle, strerror(errno));
+        return (-1);
+    }
+#else
     off_t pos = lseek(handle, (off_t)lba * 512, SEEK_SET);
     if (pos == (off_t)-1) {
         printf("lseek: atad device fd %d: %s\n", handle, strerror(errno));
         return (-1);
     }
+#endif
 
     ssize_t len;
     if (dir == ATA_DIR_WRITE)
