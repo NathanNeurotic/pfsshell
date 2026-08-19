@@ -180,7 +180,7 @@ ps2kinst = executable('ps2kinst', sources: ps2kinst_src, c_args: ps2kinst_cflags
 endif
 
 if host_system == 'windows' and cc.get_id() != 'msvc' and cc.get_id() != 'clang-cl'
-sevenz = find_program('7z', '7za', dirs: ['C:/Users/natha/Github/PFS-BatchKit-Manager/PFS-BatchKit-Manager/BAT/7-Zip'], required: false)
+sevenz = find_program('7z', '7za', required: false)
 if sevenz.found()
 archive = custom_target(
     'archive',
