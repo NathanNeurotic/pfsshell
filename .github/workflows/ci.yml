@@ -26,7 +26,8 @@
         ".gitmodules",
         "external/**"
       ]
-    }
+    },
+    "workflow_dispatch": {}
   },
   "env": {
     "CMAKE_GENERATOR": "Ninja",
