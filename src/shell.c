@@ -354,12 +354,15 @@ static int do_mkpart(context_t *ctx, int arg, char *argv[])
         "HDL",
     };
 
+    static const size_t SIZES_COUNT = sizeof(sizesMB) / sizeof(sizesMB[0]);
+    static const size_t FS_TYPE_COUNT = sizeof(fsType) / sizeof(fsType[0]);
+
     unsigned int size_in_mb = 0;
 
     char tmp[128];
     char openString[32 + 5];
     char part_type[9];
-    int i = 9;
+    int i = (int)SIZES_COUNT;
     int result = -1;
     int partfd = 0;
 
@@ -383,8 +386,8 @@ static int do_mkpart(context_t *ctx, int arg, char *argv[])
         fprintf(stderr, "%s: Partition size should end with literal M or G.\n", argv[2]);
         return (-1);
     }
-    for (size_t j = 0; j < 8; j++) {
-        if (j == 7) {
+    for (size_t j = 0; j <= FS_TYPE_COUNT; j++) {
+        if (j == FS_TYPE_COUNT) {
             fprintf(stderr, "%s: wrong fs type. Acceptable fs types: {PFS, CFS, HDL, REISER, EXT2, EXT2SWAP, MBR}.\n", argv[3]);
             return (-1);
         } else if (strcmp(argv[3], fsType[j]) == 0) {
@@ -407,7 +410,7 @@ static int do_mkpart(context_t *ctx, int arg, char *argv[])
         }
     }
 
-    if (i < 0) { // dont create smaller then 128MB Main partition
+    if (result < 0) { // unable to create main partition (size too small)
         fprintf(stderr, "%s: too small partition size.\n", argv[2]);
         return (-1);
     }

@@ -40,13 +40,16 @@ typedef struct _ata_devinfo
 } ata_devinfo_t;
 
 static int handle = -1;
+#ifdef _WIN32
+static HANDLE win_handle = INVALID_HANDLE_VALUE;
+#endif
 
 static u32 hdd_length = 0; /* in sectors */
 
 int set_atad_device_handle(int fd)
 {
 #ifdef _WIN32
-    HANDLE win_handle = (HANDLE)_get_osfhandle(fd);
+    win_handle = (HANDLE)_get_osfhandle(fd);
 #endif
 #ifdef __APPLE__
     u64 size = 0, sector_count = 0;
@@ -76,14 +79,23 @@ int set_atad_device_handle(int fd)
             } else
                 return 1;
         } else {
-#endif
-            off_t size = lseek(fd, 0, SEEK_END);
-            if (size != (off_t)-1)
-                hdd_length = (size - 511) / 512;
-            else
-                return 1;
-#ifdef _WIN32
+            LARGE_INTEGER fileSize;
+            if (win_handle != INVALID_HANDLE_VALUE && GetFileSizeEx(win_handle, &fileSize)) {
+                hdd_length = (u32)(fileSize.QuadPart / 512);
+            } else {
+                int64_t size_64 = _lseeki64(fd, 0, SEEK_END);
+                if (size_64 != -1)
+                    hdd_length = (u32)((size_64 - 511) / 512);
+                else
+                    return 1;
+            }
         }
+#else
+        off_t size = lseek(fd, 0, SEEK_END);
+        if (size != (off_t)-1)
+            hdd_length = (size - 511) / 512;
+        else
+            return 1;
 #endif
 #ifdef __APPLE__
     }
@@ -105,6 +117,9 @@ void atad_close(void)
 {
     if (handle != -1)
         close(handle), handle = -1;
+#ifdef _WIN32
+    win_handle = INVALID_HANDLE_VALUE;
+#endif
 }
 
 ata_devinfo_t *ata_get_devinfo(int device)
@@ -136,6 +151,27 @@ int ata_device_sector_io(int device, void *buf, u32 lba, u32 nsectors, int dir)
         return (-1);
     }
 
+#ifdef _WIN32
+    LARGE_INTEGER offset;
+    offset.QuadPart = (int64_t)lba * 512;
+    if (!SetFilePointerEx(win_handle, offset, NULL, FILE_BEGIN)) {
+        printf("SetFilePointerEx: lba=%u err=%lu\n", (unsigned int)lba, GetLastError());
+        return (-1);
+    }
+    DWORD bytes = 0;
+    DWORD to_transfer = nsectors * 512;
+    BOOL ok;
+    if (dir == ATA_DIR_WRITE)
+        ok = WriteFile(win_handle, buf, to_transfer, &bytes, NULL);
+    else
+        ok = ReadFile(win_handle, buf, to_transfer, &bytes, NULL);
+    if (ok && bytes == to_transfer)
+        return (0);
+    else {
+        printf("read/write: atad device lba=%u err=%lu\n", (unsigned int)lba, GetLastError());
+        return (-1);
+    }
+#else
     off_t pos = lseek(handle, (off_t)lba * 512, SEEK_SET);
     if (pos == (off_t)-1) {
         printf("lseek: atad device fd %d: %s\n", handle, strerror(errno));
@@ -153,4 +189,5 @@ int ata_device_sector_io(int device, void *buf, u32 lba, u32 nsectors, int dir)
         printf("read/write: atad device fd %d: %s\n", handle, strerror(errno));
         return (-1);
     }
+#endif
 }
